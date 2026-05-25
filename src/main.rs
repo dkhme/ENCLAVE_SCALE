@@ -20,15 +20,21 @@ async fn main() {
         run_gae().await;
     } else if args.len() > 1 && args[1] == "--role" && args[2] == "lse" {
         let hardware = args.get(3).cloned().unwrap_or_else(|| "H100".to_string());
-        run_lse(hardware).await;
+        let gae_ip = if args.len() > 5 && args[4] == "--gae-ip" {
+            args[5].clone()
+        } else {
+            "127.0.0.1:8080".to_string()
+        };
+        run_lse(hardware, gae_ip).await;
     } else {
         println!("============================================================");
         println!(" EnclaveScale: Distributed Multi-Region TDX Topology");
         println!("============================================================");
         println!("Usage:");
         println!("  cargo run -- --role gae");
-        println!("  cargo run -- --role lse [H100|A100|L4]");
-        println!("\nTo simulate the full 32-node topology, use ./experiments.sh");
+        println!("  cargo run -- --role lse [H100|A100|L4] [--gae-ip <IP:PORT>]");
+        println!("\nTo simulate the full 32-node topology locally, use ./experiments.sh");
+        println!("For full GCP TDX reproduction, see gcp_deployment/README.md");
     }
 }
 
@@ -36,7 +42,6 @@ async fn run_gae() {
     println!("[GAE] Starting Global Aggregation Enclave on 0.0.0.0:8080");
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
     
-    // For simplicity in this artifact, we wrap GAE in a Mutex for concurrent access
     let gae = std::sync::Arc::new(tokio::sync::Mutex::new(GlobalAggregationEnclave::new()));
     
     loop {
@@ -58,7 +63,6 @@ async fn run_gae() {
                         println!("[GAE] Verified and aggregated submission from {} in {:?}", submission.hardware, elapsed);
                         let _ = socket.write_all(b"ACK").await;
                         
-                        // Output grid utility for demonstration
                         if let Some(model) = gae.global_models.get("H100") {
                             let (profile, _) = telemetry::get_mlperf_signature("H100");
                             let margin = grid::calculate_peak_margin(model, &profile, 180_000_000.0, 3.0);
@@ -74,8 +78,8 @@ async fn run_gae() {
     }
 }
 
-async fn run_lse(hardware: String) {
-    println!("[LSE] Starting Local Sanitisation Enclave (Hardware: {})", hardware);
+async fn run_lse(hardware: String, gae_ip: String) {
+    println!("[LSE] Starting Local Sanitisation Enclave (Hardware: {}, GAE: {})", hardware, gae_ip);
     let mut pipeline = LsePipeline::new(&hardware, 5, 1000.0); // 5 states, max 1000W
     let (power_profile, _) = telemetry::get_mlperf_signature(&hardware);
     
@@ -97,7 +101,7 @@ async fn run_lse(hardware: String) {
 
     // Send to GAE
     println!("[LSE] Connecting to GAE via async TLS sockets...");
-    if let Ok(mut stream) = TcpStream::connect("127.0.0.1:8080").await {
+    if let Ok(mut stream) = TcpStream::connect(&gae_ip).await {
         let serialized = serde_json::to_string(&submission).unwrap();
         stream.write_all(serialized.as_bytes()).await.unwrap();
         

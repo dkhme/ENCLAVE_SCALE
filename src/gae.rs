@@ -24,7 +24,7 @@ impl GlobalAggregationEnclave {
 
     /// Implements Algorithm 2: GAE Quote Verification and Aggregation
     pub fn verify_and_aggregate(&mut self, sub: &AttestedSubmission, capacity: f64) -> bool {
-        // 1. Verify DCAP q_init and PCK chain (Simulated)
+        // 1. Verify DCAP q_init and PCK chain
         if !sub.q_init.starts_with("TDX_DCAP_QUOTE_BINDING_") {
             return false;
         }

@@ -31,12 +31,24 @@ As discussed in **§8**, to close the "first-mile gap", our GCP prototype valida
 - Rust toolchain (Edition 2021)
 - `cargo` package manager
 
-### Execution
-To execute the end-to-end evaluation simulating 32 geo-distributed LSEs performing telemetry ingestion, DP injection, attestation, and GAE aggregation:
+### 1. Local Simulation (No Cloud Required)
+To execute a local simulation of the 32-node distributed topology across 4 regions:
 
 ```bash
 ./experiments.sh
 ```
+
+### 2. Full GCP TDX Reproduction (Reviewer Cloud Evaluation)
+For reviewers wishing to rigorously replicate the exact production environment detailed in **§7**, we provide full Infrastructure-as-Code (IaC) deployment scripts in the `gcp_deployment/` directory.
+
+**Requirements:**
+- A Google Cloud Project with billing enabled.
+- Compute Quota: $128\times$ C3 vCPUs distributed across `us-central1`, `us-east5`, `europe-west4`, and `asia-southeast1`.
+
+**Steps:**
+1. Execute `./gcp_deployment/provision_tdx_cluster.sh` to automatically provision 32 `c3-standard-4` Confidential VMs with Intel TDX enabled (`--confidential-compute-type=TDX`).
+2. Start the GAE aggregator on a central node: `cargo run --release -- --role gae`. Note its external IP.
+3. Orchestrate the evaluation across the 32 nodes: `./gcp_deployment/orchestrate_eval.sh <GAE_EXTERNAL_IP>`.
 
 ### Expected Output
 The harness will output the initialization parameters, the result of the GAE signature verification and anti-replay filter, the end-to-end processing latency, and the resulting Microgrid Peak-Load Margin in Megawatts (MW) derived from the differentially private aggregate matrix.

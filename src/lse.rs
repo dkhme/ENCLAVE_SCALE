@@ -39,7 +39,7 @@ impl LsePipeline {
         self.batch_counter += 1;
         let mut m = DMatrix::zeros(self.num_states, self.num_states);
         
-        // 1. Plaintext State Extraction
+        // Step 1: Plaintext State Extraction
         let mut prev_state = self.discretiser.process(traces[0]);
         for &power in traces.iter().skip(1) {
             let curr_state = self.discretiser.process(power);
