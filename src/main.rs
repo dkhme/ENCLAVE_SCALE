@@ -28,7 +28,7 @@ async fn main() {
         println!("Usage:");
         println!("  cargo run -- --role gae");
         println!("  cargo run -- --role lse [H100|A100|L4]");
-        println!("\nTo simulate the full 20-node topology, use ./run_20_nodes.sh");
+        println!("\nTo simulate the full 32-node topology, use ./experiments.sh");
     }
 }
 

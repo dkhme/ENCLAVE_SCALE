@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "============================================================"
-echo " EnclaveScale: 20-Node Multi-Region TDX Distributed Execution"
+echo " EnclaveScale: 32-Node Multi-Region TDX Distributed Execution"
 echo "============================================================"
 
 # Start GAE
@@ -10,12 +10,12 @@ GAE_PID=$!
 
 sleep 2 # Wait for GAE to bind
 
-echo "Starting 20 LSE nodes..."
-for i in {1..20}; do
+echo "Starting 32 LSE nodes..."
+for i in {1..32}; do
     # Distribute hardware profiles for the simulation
-    if [ $i -le 10 ]; then
+    if [ $i -le 14 ]; then
         HW="H100"
-    elif [ $i -le 15 ]; then
+    elif [ $i -le 24 ]; then
         HW="A100"
     else
         HW="L4"
