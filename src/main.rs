@@ -26,6 +26,9 @@ async fn main() {
             "127.0.0.1:8080".to_string()
         };
         run_lse(hardware, gae_ip).await;
+    } else if args.len() > 1 && args[1] == "--role" && args[2] == "lse-benchmark" {
+        let k = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
+        run_lse_benchmark(k).await;
     } else {
         println!("============================================================");
         println!(" EnclaveScale: Distributed Multi-Region TDX Topology");
@@ -33,6 +36,7 @@ async fn main() {
         println!("Usage:");
         println!("  cargo run -- --role gae");
         println!("  cargo run -- --role lse [H100|A100|L4] [--gae-ip <IP:PORT>]");
+        println!("  cargo run --release -- --role lse-benchmark <K>");
         println!("\nTo simulate the full 32-node topology locally, use ./experiments.sh");
         println!("For full GCP TDX reproduction, see gcp_deployment/README.md");
     }
@@ -112,4 +116,56 @@ async fn run_lse(hardware: String, gae_ip: String) {
     } else {
         println!("[LSE] Failed to connect to GAE. Ensure it is running.");
     }
+}
+
+async fn run_lse_benchmark(k: usize) {
+    println!("[BENCHMARK] Starting Multi-Session Multiplexing Benchmark with K={}", k);
+    let hardware = "H100";
+    let (power_profile, _) = telemetry::get_mlperf_signature(hardware);
+    
+    let batch_size = 100;
+    // Target ~2,000,000 samples overall for a stable measurement across all sessions
+    let total_samples_target = 2_000_000;
+    let samples_per_session = (total_samples_target / k).max(batch_size);
+
+    let start = Instant::now();
+    let mut handles = Vec::new();
+    
+    for _ in 0..k {
+        let profile = power_profile.clone();
+        let handle = tokio::spawn(async move {
+            let mut pipeline = LsePipeline::new("H100", 5, 1000.0);
+            let epsilon = 1.0;
+            let delta = 1e-6;
+            let mut processed = 0;
+            
+            // Pre-generate a trace pool to prevent random number generation 
+            // from bottlenecking the CPU and skewing the pipeline/IO results.
+            let trace: Vec<f64> = (0..batch_size).map(|_| {
+                profile[rand::random::<usize>() % 5]
+            }).collect();
+
+            while processed < samples_per_session {
+                pipeline.process_batch(&trace, epsilon, delta, 1690000000);
+                processed += batch_size;
+                
+                // Yield to the Tokio executor to simulate the context-switching 
+                // and L1/L2 cache flushing typical of asynchronous epoll I/O multiplexing.
+                tokio::task::yield_now().await;
+            }
+            processed
+        });
+        handles.push(handle);
+    }
+    
+    let mut actual_total = 0;
+    for handle in handles {
+        actual_total += handle.await.unwrap();
+    }
+    
+    let elapsed = start.elapsed();
+    let throughput = (actual_total as f64) / elapsed.as_secs_f64();
+    
+    println!("[BENCHMARK] K={:<4} | Total Samples: {} | Time: {:.2?} | Throughput: {:.0} samples/s", 
+        k, actual_total, elapsed, throughput);
 }
