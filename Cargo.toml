@@ -1,6 +1,6 @@
 [package]
 name = "enclavescale"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "EnclaveScale: Hardware-Assisted Framework for Privacy-Preserving Data Center Power Profiling"
 authors = ["Anonymous Authors"]
@@ -15,3 +15,7 @@ hex = "0.4"
 tokio = { version = "1.28", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# TDX and SPDM Dependencies to match evaluation methodology
+tdx-attest-rs = "0.1" 
+libspdm-rs = "0.2"
+tokio-stream = "0.1"

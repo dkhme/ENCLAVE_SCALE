@@ -26,31 +26,42 @@ pub struct AttestedSubmission {
 impl LsePipeline {
     pub fn new(hardware_type: &str, num_states: usize, max_power: f64) -> Self {
         Self {
-            identity: LseIdentity::new(),
+            identity: LseIdentity::new(hardware_type),
             hardware_type: hardware_type.to_string(),
-            batch_counter: 0, // Strictly monotonic batch counter (Anti-Replay)
+            batch_counter: 0,
             discretiser: Discretiser::new(num_states, max_power),
             num_states,
         }
     }
+    
+    pub fn rotate_epoch(&mut self) {
+        // Rotate identities to bound privacy loss
+        self.identity = LseIdentity::new(&self.hardware_type);
+        self.batch_counter = 0;
+    }
 
-    /// Implements Algorithm 1: LSE State Extraction and DP Pipeline
+    /// Implements Algorithm 1: LSE State Extraction with Interrupt-Driven Parsing.
     pub fn process_batch(&mut self, traces: &[f64], epsilon: f64, delta: f64, timestamp: u64) -> AttestedSubmission {
         self.batch_counter += 1;
         let mut m = DMatrix::zeros(self.num_states, self.num_states);
         
-        // Step 1: Plaintext State Extraction
-        let mut prev_state = self.discretiser.process(traces[0]);
-        for &power in traces.iter().skip(1) {
-            let curr_state = self.discretiser.process(power);
-            m[(prev_state, curr_state)] += 1.0;
-            prev_state = curr_state;
+        if traces.is_empty() {
+            // Empty batch fallback
+        } else {
+            // Interrupt-driven state-change parser to collapse contiguous identical readings.
+            let mut prev_state = self.discretiser.process(traces[0]);
+            for &power in traces.iter().skip(1) {
+                let curr_state = self.discretiser.process(power);
+                if curr_state != prev_state {
+                    m[(prev_state, curr_state)] += 1.0;
+                    prev_state = curr_state;
+                }
+            }
         }
 
-        // 2. DP Noise Injection (calibrated to Delta_2 f = sqrt(6))
+        // DP Noise Injection
         apply_gaussian_noise(&mut m, epsilon, delta);
 
-        // 3. Remote Attestation Cryptographic Binding (Amortised)
         let payload_hash = hash_payload(&m, &self.hardware_type, timestamp, self.batch_counter);
         let signature = self.identity.signing_key.sign(&payload_hash);
 
