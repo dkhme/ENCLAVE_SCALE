@@ -15,7 +15,7 @@ pub struct LsePipeline {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct AttestedSubmission {
     pub matrix: DMatrix<f64>,
-    pub q_init: String,
+    pub q_init: Vec<u8>,
     pub vk: ed25519_dalek::VerifyingKey,
     pub signature: ed25519_dalek::Signature,
     pub hardware: String,
@@ -24,12 +24,12 @@ pub struct AttestedSubmission {
 }
 
 impl LsePipeline {
-    pub fn new(hardware_type: &str, num_states: usize, max_power: f64) -> Self {
+    pub fn new(hardware_type: &str, num_states: usize) -> Self {
         Self {
             identity: LseIdentity::new(hardware_type),
             hardware_type: hardware_type.to_string(),
             batch_counter: 0,
-            discretiser: Discretiser::new(num_states, max_power),
+            discretiser: Discretiser::new(hardware_type),
             num_states,
         }
     }
@@ -40,7 +40,7 @@ impl LsePipeline {
         self.batch_counter = 0;
     }
 
-    /// Implements Algorithm 1: LSE State Extraction with Interrupt-Driven Parsing.
+    /// Implements Algorithm 1: LSE State Extraction retaining self-loops.
     pub fn process_batch(&mut self, traces: &[f64], epsilon: f64, delta: f64, timestamp: u64) -> AttestedSubmission {
         self.batch_counter += 1;
         let mut m = DMatrix::zeros(self.num_states, self.num_states);
@@ -48,14 +48,12 @@ impl LsePipeline {
         if traces.is_empty() {
             // Empty batch fallback
         } else {
-            // Interrupt-driven state-change parser to collapse contiguous identical readings.
+            // Extraction pipeline explicitly retains sequential identical samples (self-loops).
             let mut prev_state = self.discretiser.process(traces[0]);
             for &power in traces.iter().skip(1) {
                 let curr_state = self.discretiser.process(power);
-                if curr_state != prev_state {
-                    m[(prev_state, curr_state)] += 1.0;
-                    prev_state = curr_state;
-                }
+                m[(prev_state, curr_state)] += 1.0;
+                prev_state = curr_state;
             }
         }
 

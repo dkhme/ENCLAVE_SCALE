@@ -13,9 +13,9 @@ sleep 2 # Wait for GAE to bind
 echo "Starting 32 LSE nodes..."
 for i in {1..32}; do
     # Distribute hardware profiles for the simulation
-    if [ $i -le 14 ]; then
+    if [ $i -le 11 ]; then
         HW="H100"
-    elif [ $i -le 24 ]; then
+    elif [ $i -le 22 ]; then
         HW="A100"
     else
         HW="L4"

@@ -27,10 +27,10 @@ while read -r NODE_INFO; do
     NODE_NAME=$(echo "$NODE_INFO" | awk '{print $1}')
     NODE_ZONE=$(echo "$NODE_INFO" | awk '{print $2}')
     
-    # Stratify hardware profiles matching the paper's distribution (14 H100, 10 A100, 8 L4)
-    if [ $INDEX -le 14 ]; then
+    # Stratify hardware profiles matching the paper's distribution (11 H100, 11 A100, 10 L4)
+    if [ $INDEX -le 11 ]; then
         HW="H100"
-    elif [ $INDEX -le 24 ]; then
+    elif [ $INDEX -le 22 ]; then
         HW="A100"
     else
         HW="L4"

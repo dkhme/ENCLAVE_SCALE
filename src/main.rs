@@ -75,7 +75,7 @@ async fn run_gae() {
 
 async fn run_lse(hardware: String, gae_ip: String) {
     println!("[LSE] Starting Local Sanitisation Enclave (Hardware: {}, GAE: {})", hardware, gae_ip);
-    let mut pipeline = LsePipeline::new(&hardware, 5, 1000.0);
+    let mut pipeline = LsePipeline::new(&hardware, 5);
     
     // Initialize Unix Socket for SPDM-authenticated telemetry
     let socket_path = format!("/tmp/spdm_telemetry_{}.sock", hardware);
